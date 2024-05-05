@@ -1,6 +1,10 @@
 use phper::{echo, functions::Argument, modules::Module, php_get_module, values::ZVal};
 
 mod module;
+mod hock;
+mod context;
+mod request;
+mod util;
 
 /// The php function, receive arguments with type `ZVal`.
 fn say_hello(arguments: &mut [ZVal]) -> phper::Result<()> {
@@ -29,6 +33,8 @@ pub fn get_module() -> Module {
     module.add_function("say_hello", say_hello).argument(Argument::by_val("name"));
 
     module.on_module_init(module::init);
+    module.on_request_init(request::init);
+    module.on_request_shutdown(request::shutdown);
 
     module
 }
