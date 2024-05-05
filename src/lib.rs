@@ -5,6 +5,7 @@ mod hock;
 mod context;
 mod request;
 mod util;
+mod span;
 
 /// The php function, receive arguments with type `ZVal`.
 fn say_hello(arguments: &mut [ZVal]) -> phper::Result<()> {

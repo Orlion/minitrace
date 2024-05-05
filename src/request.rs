@@ -1,9 +1,13 @@
-use phper::{arrays::ZArr, values::ZVal, eg};
-use anyhow::Context;
+use std::collections::HashMap;
+
+use phper::{arrays::ZArr, eg};
 use crate::util::z_val_to_string;
 use crate::context;
+use crate::span;
 
 pub fn init() {
+    context::create_context();
+
     let get = get_page_request_get();
     let post = get_page_request_post();
     let server = get_page_request_server();
@@ -14,14 +18,18 @@ pub fn init() {
         method = get_page_request_method(server);
     }
 
-    context::create_context();
-    let trace_id = context::get_context().trace_id();
-    dbg!("request.init", trace_id, uri, method, get, post);
+    let mut payload = HashMap::new();
+    payload.insert("$_GET".to_string(), format!("{:?}", get));
+    payload.insert("$_POST".to_string(), format!("{:?}", post));
+    payload.insert("method".to_string(), method);
+
+    context::get_context().start_span(span::SPAN_KIND_URL, &uri, payload);
 }
 
 pub fn shutdown() {
-    let trace_id = context::get_context().trace_id();
-    dbg!("request.shutdown", trace_id);
+    let ctx = context::get_context();
+    ctx.end_span();
+    ctx.flush();
 }
 
 fn get_page_request_server<'a>() -> Option<&'a ZArr> {
