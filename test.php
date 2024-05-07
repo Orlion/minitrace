@@ -11,4 +11,4 @@ $options = [
     PDO::ATTR_EMULATE_PREPARES   => false,
 ];
 $pdo = new PDO($dsn, $user, $pass, $options);
-$pdo->query('select * from article1');
+$pdo->query('select * from article');

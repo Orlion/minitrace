@@ -1,8 +1,8 @@
 pub mod pdo;
 
-use phper::{sys, values::ExecuteData, strings::ZStr};
-
 use crate::context;
+use phper::{strings::ZStr, sys, values::ExecuteData};
+use std::collections::HashMap;
 
 pub unsafe extern "C" fn observer_handler(
     execute_data: *mut sys::zend_execute_data,
@@ -13,7 +13,7 @@ pub unsafe extern "C" fn observer_handler(
 
     let (function_name, class_name) = match get_function_and_class_name(execute_data) {
         Ok(x) => x,
-        Err(err) => {
+        Err(_) => {
             return Default::default();
         }
     };
@@ -26,9 +26,9 @@ pub unsafe extern "C" fn observer_handler(
         return Default::default();
     };
 
-    if class_name != "PDO" || function_name != "query"{
+    let Some(_) = get_hock(&class_name, &function_name) else {
         return Default::default();
-    }
+    };
 
     sys::zend_observer_fcall_handlers {
         begin: Some(observer_begin),
@@ -37,7 +37,7 @@ pub unsafe extern "C" fn observer_handler(
 }
 
 fn get_function_and_class_name(
-    execute_data: &mut ExecuteData,
+    execute_data: &ExecuteData,
 ) -> anyhow::Result<(Option<String>, Option<String>)> {
     let function = execute_data.func();
 
@@ -64,25 +64,21 @@ unsafe extern "C" fn observer_begin(execute_data: *mut sys::zend_execute_data) {
     };
 
     let Some(class_name) = class_name else {
-        return Default::default();
+        return;
     };
 
     let Some(function_name) = function_name else {
-        return Default::default();
+        return;
     };
 
-    if class_name != "PDO" || function_name != "query"{
-        return Default::default();
-    }
-
-    dbg!("PDO::query begin");
-
-    let trace_id = context::get_context().trace_id();
-    dbg!(trace_id);
+    let hock = get_hock(class_name.as_str(), function_name.as_str()).unwrap();
+    let hock_span = hock.0(&function_name, execute_data);
+    context::get_context().start_span(&hock_span.kind, &hock_span.name, hock_span.payload);
 }
 
 unsafe extern "C" fn observer_end(
-    execute_data: *mut sys::zend_execute_data, retval: *mut sys::zval,
+    execute_data: *mut sys::zend_execute_data,
+    retval: *mut sys::zval,
 ) {
     let Some(execute_data) = ExecuteData::try_from_mut_ptr(execute_data) else {
         return;
@@ -93,22 +89,55 @@ unsafe extern "C" fn observer_end(
     };
 
     let Some(class_name) = class_name else {
-        return Default::default();
+        return;
     };
 
     let Some(function_name) = function_name else {
-        return Default::default();
+        return;
     };
 
-    if class_name != "PDO" || function_name != "query"{
-        return Default::default();
+    let hock = get_hock(class_name.as_str(), function_name.as_str()).unwrap();
+    hock.1(execute_data);
+
+    context::get_context().end_span();
+}
+
+fn get_hock(
+    class_name: &str,
+    function_name: &str,
+) -> Option<(Box<BeforeExecuteHook>, Box<AfterExecuteHook>)> {
+    match (class_name, function_name) {
+        ("PDO", "__construct") => Some((
+            Box::new(pdo::hock_before_pdo_construct),
+            Box::new(hock_after_common),
+        )),
+        ("PDO", f)
+            if [
+                "exec",
+                "query",
+                "prepare",
+                "commit",
+                "beginTransaction",
+                "rollBack",
+            ]
+            .contains(&f) =>
+        {
+            Some((
+                Box::new(pdo::hock_before_pdo_method),
+                Box::new(hock_after_common),
+            ))
+        }
+        _ => None,
     }
-
-    dbg!("PDO::query end");
-    let trace_id = context::get_context().trace_id();
-    dbg!(trace_id);
 }
 
-fn get_hock(class_name: &str, function_name: &str)  {
-
+pub struct HockSpan {
+    kind: String,
+    name: String,
+    payload: HashMap<String, String>,
 }
+
+pub type BeforeExecuteHook = dyn Fn(&String, &ExecuteData) -> HockSpan;
+pub type AfterExecuteHook = dyn Fn(&ExecuteData);
+
+fn hock_after_common(execute_data: &ExecuteData) {}

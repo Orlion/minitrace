@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use phper::{arrays::ZArr, eg};
-use crate::util::z_val_to_string;
 use crate::context;
 use crate::span;
+use crate::util::z_val_to_string;
+use phper::{arrays::ZArr, eg};
 
 pub fn init() {
     context::create_context();
@@ -23,33 +23,39 @@ pub fn init() {
     payload.insert("$_POST".to_string(), format!("{:?}", post));
     payload.insert("method".to_string(), method);
 
-    context::get_context().start_span(span::SPAN_KIND_URL, &uri, payload);
+    context::get_context().start_root_span(span::SPAN_KIND_URL, &uri, payload);
 }
 
 pub fn shutdown() {
     let ctx = context::get_context();
-    ctx.end_span();
+    ctx.end_root_span();
     ctx.flush();
 }
 
 fn get_page_request_server<'a>() -> Option<&'a ZArr> {
     unsafe {
         let symbol_table = ZArr::from_mut_ptr(&mut eg!(symbol_table));
-        symbol_table.get("_SERVER").and_then(|carrier| carrier.as_z_arr())
+        symbol_table
+            .get("_SERVER")
+            .and_then(|carrier| carrier.as_z_arr())
     }
 }
 
 fn get_page_request_get<'a>() -> Option<&'a ZArr> {
     unsafe {
         let symbol_table = ZArr::from_mut_ptr(&mut eg!(symbol_table));
-        symbol_table.get("_GET").and_then(|carrier| carrier.as_z_arr())
+        symbol_table
+            .get("_GET")
+            .and_then(|carrier| carrier.as_z_arr())
     }
 }
 
 fn get_page_request_post<'a>() -> Option<&'a ZArr> {
     unsafe {
         let symbol_table = ZArr::from_mut_ptr(&mut eg!(symbol_table));
-        symbol_table.get("_POST").and_then(|carrier| carrier.as_z_arr())
+        symbol_table
+            .get("_POST")
+            .and_then(|carrier| carrier.as_z_arr())
     }
 }
 
