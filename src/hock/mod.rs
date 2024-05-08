@@ -1,7 +1,7 @@
 pub mod pdo;
 
 use crate::context;
-use phper::{strings::ZStr, sys, values::ExecuteData};
+use phper::{strings::ZStr, sys, values::ExecuteData, values::ZVal};
 use std::collections::HashMap;
 
 pub unsafe extern "C" fn observer_handler(
@@ -127,6 +127,14 @@ fn get_hock(
                 Box::new(hock_after_common),
             ))
         }
+        ("PDOStatement", f)
+            if ["execute", "fetch", "fetchAll", "fetchColumn", "fetchObject"].contains(&f) =>
+        {
+            Some((
+                Box::new(pdo::hock_before_pdo_statement_method),
+                Box::new(hock_after_common),
+            ))
+        }
         _ => None,
     }
 }
@@ -137,7 +145,7 @@ pub struct HockSpan {
     payload: HashMap<String, String>,
 }
 
-pub type BeforeExecuteHook = dyn Fn(&String, &ExecuteData) -> HockSpan;
-pub type AfterExecuteHook = dyn Fn(&ExecuteData);
+pub type BeforeExecuteHook = dyn Fn(&String, &mut ExecuteData) -> HockSpan;
+pub type AfterExecuteHook = dyn Fn(&mut ExecuteData, &mut ZVal);
 
-fn hock_after_common(execute_data: &ExecuteData) {}
+fn hock_after_common(execute_data: &mut ExecuteData, ret: &mut ZVal) {}
