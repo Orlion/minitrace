@@ -78,10 +78,15 @@ pub fn hock_before_pdo_statement_method(
     }
 }
 
-pub fn hock_after_pdo(execute_data: &mut ExecuteData, return_value: &mut ZVal) -> Result<()> {
+pub fn hock_after_pdo(
+    execute_data: &mut ExecuteData,
+    return_value: &mut ZVal,
+) -> Result<HashMap<String, String>> {
     if let Some(b) = return_value.as_bool() {
         // pdo method return false, so we need to get error info
-        if !b {}
+        if !b {
+            let error_info = get_pdo_error_info(execute_data);
+        }
     } else if let Some(obj) = return_value.as_mut_z_obj() {
         let class_name = obj.get_class().get_name().to_str()?;
     } else if let Some(i) = return_value.as_long() {
@@ -93,7 +98,7 @@ pub fn hock_after_pdo(execute_data: &mut ExecuteData, return_value: &mut ZVal) -
     Ok(())
 }
 
-fn hock_after_pdo_when_false(this: &mut ZObj) -> Result<()> {
+fn get_pdo_error_info(this: &mut ZObj) -> Result<()> {
     let info = this.call("errorInfo", [])?;
     let info = info.as_z_arr().context("errorInfo isn't array")?;
 
