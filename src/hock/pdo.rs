@@ -8,7 +8,7 @@ use phper::{
 use std::collections::HashMap;
 
 pub fn hock_before_pdo_construct(
-    function_name: &String,
+    _function_name: &String,
     execute_data: &mut ExecuteData,
 ) -> HockSpan {
     let dsn = execute_data.get_parameter(0);

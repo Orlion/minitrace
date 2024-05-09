@@ -20,15 +20,7 @@ pub unsafe extern "C" fn observer_handler(
         }
     };
 
-    let Some(class_name) = class_name else {
-        return Default::default();
-    };
-
-    let Some(function_name) = function_name else {
-        return Default::default();
-    };
-
-    let Some(_) = get_hock(&class_name, &function_name) else {
+    if get_hock(&class_name, &function_name).is_none() {
         return Default::default();
     };
 
@@ -65,16 +57,12 @@ unsafe extern "C" fn observer_begin(execute_data: *mut sys::zend_execute_data) {
         return;
     };
 
-    let Some(class_name) = class_name else {
+    if function_name.is_none() {
         return;
-    };
+    }
 
-    let Some(function_name) = function_name else {
-        return;
-    };
-
-    let hock = get_hock(class_name.as_str(), function_name.as_str()).unwrap();
-    let hock_span = hock.0(&function_name, execute_data);
+    let hock = get_hock(&class_name, &function_name).unwrap();
+    let hock_span = hock.0(&function_name.unwrap(), execute_data);
     context::get_context().start_span(&hock_span.kind, &hock_span.name, hock_span.payload);
 }
 
@@ -90,14 +78,6 @@ unsafe extern "C" fn observer_end(
         return;
     };
 
-    let Some(class_name) = class_name else {
-        return;
-    };
-
-    let Some(function_name) = function_name else {
-        return;
-    };
-
     let mut null = ZVal::from(());
     let ret = match ZVal::try_from_mut_ptr(retval) {
         Some(ret) => ret,
@@ -106,7 +86,7 @@ unsafe extern "C" fn observer_end(
 
     let ctx = context::get_context();
 
-    let hock = get_hock(class_name.as_str(), function_name.as_str()).unwrap();
+    let hock = get_hock(&class_name, &function_name).unwrap();
     if let Ok(payload) = hock.1(execute_data, ret) {
         ctx.extend_span_payload(payload);
     }
@@ -115,15 +95,18 @@ unsafe extern "C" fn observer_end(
 }
 
 fn get_hock(
-    class_name: &str,
-    function_name: &str,
+    class_name: &Option<String>,
+    function_name: &Option<String>,
 ) -> Option<(Box<BeforeExecuteHook>, Box<AfterExecuteHook>)> {
-    match (class_name, function_name) {
-        ("PDO", "__construct") => Some((
+    match (
+        class_name.as_ref().map(|str: &String| str.as_str()),
+        function_name.as_ref().map(|str: &String| str.as_str()),
+    ) {
+        (Some("PDO"), Some("__construct")) => Some((
             Box::new(pdo::hock_before_pdo_construct),
             Box::new(pdo::hock_after_pdo),
         )),
-        ("PDO", f)
+        (Some("PDO"), Some(f))
             if [
                 "exec",
                 "query",
@@ -139,7 +122,7 @@ fn get_hock(
                 Box::new(pdo::hock_after_pdo),
             ))
         }
-        ("PDOStatement", f)
+        (Some("PDOStatement"), Some(f))
             if ["execute", "fetch", "fetchAll", "fetchColumn", "fetchObject"].contains(&f) =>
         {
             Some((
@@ -147,6 +130,10 @@ fn get_hock(
                 Box::new(pdo::hock_after_pdo),
             ))
         }
+        (_, Some("curl_exec")) => Some((
+            Box::new(curl::hock_before_curl),
+            Box::new(curl::hock_after_curl),
+        )),
         _ => None,
     }
 }
