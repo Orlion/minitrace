@@ -8,7 +8,6 @@ use url::Url;
 pub fn hock_before_curl(function_name: &String, execute_data: &mut ExecuteData) -> HockSpan {
     let mut payload = HashMap::new();
     let mut name = String::from("UNKNOWN");
-    dbg!(execute_data.num_args());
     if execute_data.num_args() > 0 {
         let ch = execute_data.get_parameter(0);
         if let Some((url, query)) = get_url_from_curl_handle(ch) {
@@ -58,7 +57,7 @@ fn get_url_from_curl_handle(ch: &ZVal) -> Option<(String, String)> {
 
 fn get_curl_info_from_curl_handle(ch: &ZVal) -> Option<(i64, String)> {
     let mut curl_error = String::from("");
-    let curl_info = phper::functions::call("curl_get_info", &mut [ch.clone()]).ok()?;
+    let curl_info = phper::functions::call("curl_getinfo", &mut [ch.clone()]).ok()?;
     let http_code = curl_info.as_z_arr()?.get("http_code")?.as_long()?;
     if http_code == 0 {
         curl_error = phper::functions::call("curl_error", &mut [ch.clone()])
