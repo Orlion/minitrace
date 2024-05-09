@@ -46,7 +46,6 @@ impl Context {
         let mut span = self.top.take().unwrap();
         span.end();
         self.spans.push(span);
-        self.top = None;
     }
 
     pub fn flush(&self) {
@@ -54,6 +53,10 @@ impl Context {
             let json = serde_json::to_string(span).unwrap();
             dbg!(json);
         }
+    }
+
+    pub fn extend_span_payload(&mut self, extend: HashMap<String, String>) {
+        self.top.as_mut().unwrap().extend_payload(extend);
     }
 }
 

@@ -1,6 +1,8 @@
+pub mod curl;
 pub mod pdo;
 
 use crate::context;
+use crate::errors::Result;
 use phper::{strings::ZStr, sys, values::ExecuteData, values::ZVal};
 use std::collections::HashMap;
 
@@ -96,10 +98,20 @@ unsafe extern "C" fn observer_end(
         return;
     };
 
-    let hock = get_hock(class_name.as_str(), function_name.as_str()).unwrap();
-    hock.1(execute_data);
+    let mut null = ZVal::from(());
+    let ret = match ZVal::try_from_mut_ptr(retval) {
+        Some(ret) => ret,
+        None => &mut null,
+    };
 
-    context::get_context().end_span();
+    let ctx = context::get_context();
+
+    let hock = get_hock(class_name.as_str(), function_name.as_str()).unwrap();
+    if let Ok(payload) = hock.1(execute_data, ret) {
+        ctx.extend_span_payload(payload);
+    }
+
+    ctx.end_span();
 }
 
 fn get_hock(
@@ -109,7 +121,7 @@ fn get_hock(
     match (class_name, function_name) {
         ("PDO", "__construct") => Some((
             Box::new(pdo::hock_before_pdo_construct),
-            Box::new(hock_after_common),
+            Box::new(pdo::hock_after_pdo),
         )),
         ("PDO", f)
             if [
@@ -124,7 +136,7 @@ fn get_hock(
         {
             Some((
                 Box::new(pdo::hock_before_pdo_method),
-                Box::new(hock_after_common),
+                Box::new(pdo::hock_after_pdo),
             ))
         }
         ("PDOStatement", f)
@@ -132,7 +144,7 @@ fn get_hock(
         {
             Some((
                 Box::new(pdo::hock_before_pdo_statement_method),
-                Box::new(hock_after_common),
+                Box::new(pdo::hock_after_pdo),
             ))
         }
         _ => None,
@@ -146,6 +158,12 @@ pub struct HockSpan {
 }
 
 pub type BeforeExecuteHook = dyn Fn(&String, &mut ExecuteData) -> HockSpan;
-pub type AfterExecuteHook = dyn Fn(&mut ExecuteData, &mut ZVal);
+pub type AfterExecuteHook = dyn Fn(&mut ExecuteData, &mut ZVal) -> Result<HashMap<String, String>>;
 
-fn hock_after_common(execute_data: &mut ExecuteData, ret: &mut ZVal) {}
+fn hock_after_common(
+    execute_data: &mut ExecuteData,
+    ret: &mut ZVal,
+) -> Result<HashMap<String, String>> {
+    let mut payload = HashMap::new();
+    Ok(payload)
+}

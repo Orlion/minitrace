@@ -5,7 +5,9 @@ use std::collections::HashMap;
 
 pub const SPAN_KIND_URL: &str = "URL";
 pub const SPAN_KIND_PDO: &str = "PDO";
+pub const SPAN_KIND_CURL: &str = "CURL";
 
+#[derive(Debug)]
 pub struct Span {
     trace_id: String,
     kind: String,
@@ -25,18 +27,18 @@ impl Span {
     ) -> Box<Self> {
         let now = Local::now();
         Box::new(Self {
-            trace_id: trace_id,
+            trace_id,
             kind: kind.to_string(),
             name: name.to_string(),
-            payload: payload,
+            payload,
             start_time: now,
             end_time: now,
             duration_in_micro: 0,
         })
     }
 
-    pub fn append_payload(&mut self, key: &str, value: &str) {
-        self.payload.insert(key.to_string(), value.to_string());
+    pub fn extend_payload(&mut self, extend: HashMap<String, String>) {
+        self.payload.extend(extend);
     }
 
     pub fn end(&mut self) {

@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use std::{result, str::Utf8Error};
 
 #[derive(Debug, thiserror::Error)]
@@ -11,6 +12,12 @@ pub enum Error {
 impl From<Utf8Error> for Error {
     fn from(e: Utf8Error) -> Self {
         Self::Anyhow(e.into())
+    }
+}
+
+impl From<String> for Error {
+    fn from(e: String) -> Self {
+        Self::Anyhow(anyhow!("{}", e))
     }
 }
 

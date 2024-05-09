@@ -1,7 +1,6 @@
 use super::HockSpan;
 use crate::errors::Result;
 use crate::span;
-use anyhow::Context;
 use phper::{
     objects::ZObj,
     values::{ExecuteData, ZVal},
@@ -82,50 +81,51 @@ pub fn hock_after_pdo(
     execute_data: &mut ExecuteData,
     return_value: &mut ZVal,
 ) -> Result<HashMap<String, String>> {
+    let mut payload = HashMap::new();
     if let Some(b) = return_value.as_bool() {
         // pdo method return false, so we need to get error info
         if !b {
-            let error_info = get_pdo_error_info(execute_data);
+            if let Some(error_info) = get_pdo_error_info(
+                execute_data
+                    .get_this_mut()
+                    .ok_or("this is null".to_string())?,
+            ) {
+                payload.insert("state".to_string(), error_info.0.to_string());
+                payload.insert("code".to_string(), error_info.1.to_string());
+                payload.insert("error".to_string(), error_info.2.to_string());
+            }
         }
     } else if let Some(obj) = return_value.as_mut_z_obj() {
         let class_name = obj.get_class().get_name().to_str()?;
+        payload.insert("class_name".to_string(), class_name.to_string());
     } else if let Some(i) = return_value.as_long() {
         // pdo method return int
+        payload.insert("return_value".to_string(), i.to_string());
     } else if let Some(arr) = return_value.as_mut_z_arr() {
         // fetch array length
+        payload.insert("fetch_array_length".to_string(), arr.len().to_string());
     }
 
-    Ok(())
+    Ok(payload)
 }
 
-fn get_pdo_error_info(this: &mut ZObj) -> Result<()> {
-    let info = this.call("errorInfo", [])?;
-    let info = info.as_z_arr().context("errorInfo isn't array")?;
+fn get_pdo_error_info(this: &mut ZObj) -> Option<(&str, i64, &str)> {
+    let info = this.call("errorInfo", []).ok()?;
+    let info = info.as_z_arr()?;
 
-    let state = info
-        .get(0)
-        .context("errorInfo[0] not exists")?
-        .expect_z_str()?
-        .to_str()?;
+    let state = info.get(0)?.expect_z_str().ok()?.to_str().ok()?;
     let code = {
-        let code = info.get(1).context("rrorInfo[1] not exists")?;
+        let code = info.get(1)?;
         // PDOStatement::fetch
         // In all cases, false is returned on failure or if there are no more rows.
         if code.get_type_info().is_null() {
-            return Ok(());
+            return None;
         }
 
-        &code.expect_long()?.to_string()
+        code.expect_long().ok()?
     };
-    let error = info
-        .get(2)
-        .context("errorInfo[2] not exists")?
-        .expect_z_str()?
-        .to_str()?;
-
-    span_object.add_log([("SQLSTATE", state), ("Error Code", code), ("Error", error)]);
-
-    Ok(())
+    let error = info.get(2)?.expect_z_str().ok()?.to_str().ok()?;
+    Some((state, code, error))
 }
 
 #[derive(Debug)]
