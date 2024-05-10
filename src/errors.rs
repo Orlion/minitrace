@@ -21,4 +21,10 @@ impl From<String> for Error {
     }
 }
 
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Self::Anyhow(anyhow!("{}", e))
+    }
+}
+
 pub type Result<T> = result::Result<T, Error>;

@@ -1,5 +1,6 @@
 use crate::span::Span;
-use std::collections::HashMap;
+use std::io::Write;
+use std::{collections::HashMap, fs::OpenOptions};
 use uuid::Uuid;
 
 static mut CONTEXT: Option<&mut Context> = None;
@@ -52,11 +53,20 @@ impl Context {
         self.spans.push(span);
     }
 
-    pub fn flush(&self) {
+    pub fn flush(&self) -> crate::errors::Result<()> {
+        let mut file = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .append(true)
+            .open("/tmp/minitrace.log")?;
+
         for span in &self.spans {
-            let json = serde_json::to_string(span).unwrap();
-            dbg!(json);
+            if let Ok(json) = serde_json::to_string(span) {
+                let _ = writeln!(file, "{}", json);
+            }
         }
+
+        Ok(())
     }
 
     pub fn extend_span_payload(&mut self, extend: HashMap<String, String>) {
