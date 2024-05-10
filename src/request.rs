@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use crate::context;
 use crate::span;
 use crate::util::z_val_to_string;
-use phper::{arrays::ZArr, eg};
+use phper::values::ZVal;
+use phper::{arrays::ZArr, eg, sg};
 
 pub fn init() {
     context::create_context();
@@ -23,10 +24,21 @@ pub fn init() {
     payload.insert("$_POST".to_string(), format!("{:?}", post));
     payload.insert("method".to_string(), method);
 
+    let ctx = context::get_context();
+
+    let _ = phper::functions::call(
+        "header",
+        &mut [ZVal::from(
+            "X-MiniTrace-Id: ".to_string() + ctx.get_trace_id(),
+        )],
+    );
+
     context::get_context().start_root_span(span::SPAN_KIND_URL, &uri, payload);
 }
 
 pub fn shutdown() {
+    let status_code = unsafe { sg!(sapi_headers).http_response_code };
+
     let ctx = context::get_context();
     ctx.end_root_span();
     ctx.flush();

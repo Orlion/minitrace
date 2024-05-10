@@ -21,6 +21,10 @@ impl Context {
         }
     }
 
+    pub fn get_trace_id(&self) -> &str {
+        &self.trace_id
+    }
+
     pub fn start_root_span(&mut self, kind: &str, name: &str, payload: HashMap<String, String>) {
         if self.root.is_some() {
             panic!("Cannot start a new span while another is active");
