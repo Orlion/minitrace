@@ -67,7 +67,7 @@ pub fn hock_before_pdo_statement_method(
     }
 
     HockSpan {
-        kind: span::SPAN_KIND_PDO.to_string(),
+        kind: span::SPAN_KIND_PDO_STATEMENT.to_string(),
         name: function_name.clone(),
         payload: {
             let mut payload = HashMap::new();
@@ -81,31 +81,39 @@ pub fn hock_after_pdo(
     execute_data: &mut ExecuteData,
     return_value: &mut ZVal,
 ) -> Result<HashMap<String, String>> {
-    let mut payload = HashMap::new();
-    if let Some(b) = return_value.as_bool() {
-        // pdo method return false, so we need to get error info
-        if !b {
-            if let Some(error_info) = get_pdo_error_info(
-                execute_data
-                    .get_this_mut()
-                    .ok_or("this is null".to_string())?,
-            ) {
-                payload.insert("state".to_string(), error_info.0.to_string());
-                payload.insert("code".to_string(), error_info.1.to_string());
-                payload.insert("error".to_string(), error_info.2.to_string());
+    let result: String = {
+        if let Some(b) = return_value.as_bool() {
+            // pdo method return false, so we need to get error info
+            if !b {
+                if let Some(error_info) = get_pdo_error_info(
+                    execute_data
+                        .get_this_mut()
+                        .ok_or("this is null".to_string())?,
+                ) {
+                    format!(
+                        "false(state: {}, code: {}, error: {})",
+                        error_info.0, error_info.1, error_info.2
+                    )
+                } else {
+                    String::from("false")
+                }
+            } else {
+                String::from("true")
             }
+        } else if let Some(obj) = return_value.as_mut_z_obj() {
+            let class_name = obj.get_class().get_name().to_str()?;
+            format!("object({})", class_name)
+        } else if let Some(i) = return_value.as_long() {
+            i.to_string()
+        } else if let Some(arr) = return_value.as_mut_z_arr() {
+            format!("array({})", arr.len())
+        } else {
+            String::from("unknown")
         }
-    } else if let Some(obj) = return_value.as_mut_z_obj() {
-        let class_name = obj.get_class().get_name().to_str()?;
-        payload.insert("class_name".to_string(), class_name.to_string());
-    } else if let Some(i) = return_value.as_long() {
-        // pdo method return int
-        payload.insert("return_value".to_string(), i.to_string());
-    } else if let Some(arr) = return_value.as_mut_z_arr() {
-        // fetch array length
-        payload.insert("fetch_array_length".to_string(), arr.len().to_string());
-    }
+    };
 
+    let mut payload = HashMap::new();
+    payload.insert("result".to_string(), result);
     Ok(payload)
 }
 

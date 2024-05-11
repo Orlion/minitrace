@@ -5,7 +5,7 @@ use phper::values::{ExecuteData, ZVal};
 use std::collections::HashMap;
 use url::Url;
 
-pub fn hock_before_curl(function_name: &String, execute_data: &mut ExecuteData) -> HockSpan {
+pub fn hock_before_curl(_function_name: &String, execute_data: &mut ExecuteData) -> HockSpan {
     let mut payload = HashMap::new();
     let mut name = String::from("UNKNOWN");
     if execute_data.num_args() > 0 {
@@ -25,7 +25,7 @@ pub fn hock_before_curl(function_name: &String, execute_data: &mut ExecuteData) 
 
 pub fn hock_after_curl(
     execute_data: &mut ExecuteData,
-    return_value: &mut ZVal,
+    _return_value: &mut ZVal,
 ) -> Result<HashMap<String, String>> {
     let mut payload = HashMap::new();
     if execute_data.num_args() > 0 {

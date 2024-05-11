@@ -11,4 +11,8 @@ $options = [
     PDO::ATTR_EMULATE_PREPARES   => false,
 ];
 $pdo = new PDO($dsn, $user, $pass, $options);
-$pdo->query('select * from article');
+$stm = $pdo->query('select * from article');
+$rows = $stm->fetchAll();
+foreach($rows as $row) {
+    print_r($row);
+}

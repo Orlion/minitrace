@@ -54,11 +54,16 @@ impl Context {
     }
 
     pub fn flush(&self) -> crate::errors::Result<()> {
+        let log_file = unsafe { crate::module::LOG_FILE };
+        if log_file.is_empty() {
+            return Ok(());
+        }
+
         let mut file = OpenOptions::new()
             .create(true)
             .write(true)
             .append(true)
-            .open("/tmp/minitrace.log")?;
+            .open(log_file)?;
 
         for span in &self.spans {
             if let Ok(json) = serde_json::to_string(span) {
@@ -67,6 +72,10 @@ impl Context {
         }
 
         Ok(())
+    }
+
+    pub fn extend_root_span_payload(&mut self, extend: HashMap<String, String>) {
+        self.root.as_mut().unwrap().extend_payload(extend);
     }
 
     pub fn extend_span_payload(&mut self, extend: HashMap<String, String>) {

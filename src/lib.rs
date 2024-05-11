@@ -1,4 +1,4 @@
-use phper::{echo, functions::Argument, modules::Module, php_get_module, values::ZVal};
+use phper::{ini::Policy, modules::Module, php_get_module};
 
 mod context;
 mod errors;
@@ -8,17 +8,7 @@ mod request;
 mod span;
 mod util;
 
-/// The php function, receive arguments with type `ZVal`.
-fn say_hello(arguments: &mut [ZVal]) -> phper::Result<()> {
-    // Get the first argument, expect the type `ZStr`, and convert to Rust utf-8
-    // str.
-    let name = arguments[0].expect_z_str()?.to_str()?;
-
-    // Macro which do php internal `echo`.
-    echo!("Hello, {}!\n", name);
-
-    Ok(())
-}
+const MINITRACE_LOG_FILE: &str = "minitrace.log_file";
 
 /// This is the entry of php extension, the attribute macro `php_get_module`
 /// will generate the `extern "C" fn`.
@@ -27,10 +17,11 @@ pub fn get_module() -> Module {
     // New `Module` with extension info.
     let mut module = Module::new("minitrace", "0.1.0", "Orlion");
 
-    // Register function `say_hello`, with one argument `name`.
-    module
-        .add_function("say_hello", say_hello)
-        .argument(Argument::by_val("name"));
+    module.add_ini(
+        MINITRACE_LOG_FILE,
+        "/tmp/minitrace.log".to_string(),
+        Policy::System,
+    );
 
     module.on_module_init(module::init);
     module.on_request_init(request::init);

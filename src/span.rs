@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 pub const SPAN_KIND_URL: &str = "URL";
 pub const SPAN_KIND_PDO: &str = "PDO";
+pub const SPAN_KIND_PDO_STATEMENT: &str = "PDO_STATEMENT";
 pub const SPAN_KIND_CURL: &str = "CURL";
 
 #[derive(Debug)]
@@ -45,10 +46,6 @@ impl Span {
         self.end_time = Local::now();
         self.duration_in_micro =
             self.end_time.timestamp_micros() - self.start_time.timestamp_micros();
-    }
-
-    pub fn set_trace_id(&mut self, trace_id: &str) {
-        self.trace_id = trace_id.to_string();
     }
 }
 

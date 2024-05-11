@@ -146,11 +146,3 @@ pub struct HockSpan {
 
 pub type BeforeExecuteHook = dyn Fn(&String, &mut ExecuteData) -> HockSpan;
 pub type AfterExecuteHook = dyn Fn(&mut ExecuteData, &mut ZVal) -> Result<HashMap<String, String>>;
-
-fn hock_after_common(
-    execute_data: &mut ExecuteData,
-    ret: &mut ZVal,
-) -> Result<HashMap<String, String>> {
-    let mut payload = HashMap::new();
-    Ok(payload)
-}
