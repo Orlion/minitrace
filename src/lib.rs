@@ -1,4 +1,6 @@
-use phper::{ini::Policy, modules::Module, php_get_module};
+use std::collections::HashMap;
+
+use phper::{functions::Argument, ini::Policy, modules::Module, php_get_module, values::ZVal};
 
 mod context;
 mod errors;
@@ -23,9 +25,41 @@ pub fn get_module() -> Module {
         Policy::System,
     );
 
+    module
+        .add_function("minitrace_error_handler", minitrace_error_handler)
+        .arguments(vec![
+            Argument::by_val("errno"),
+            Argument::by_val("errstr"),
+            Argument::by_val("errfile"),
+            Argument::by_val("errline"),
+        ]);
+
     module.on_module_init(module::init);
     module.on_request_init(request::init);
     module.on_request_shutdown(request::shutdown);
 
     module
+}
+
+fn minitrace_error_handler(arguments: &mut [ZVal]) -> phper::Result<()> {
+    let errno = arguments[0].expect_long()?;
+    let errstr = arguments[1].expect_z_str()?.to_str()?;
+    let errfile = arguments[2].expect_z_str()?.to_str()?;
+    let errline = arguments[3].expect_long()?;
+
+    let ctx = context::get_context();
+    ctx.start_span(
+        crate::span::SPAN_KIND_ERROR,
+        format!(
+            "{}: {} in {} on line {}",
+            util::errno_2_str(errno),
+            errstr,
+            errfile,
+            errline
+        )
+        .as_str(),
+        HashMap::new(),
+    );
+    ctx.end_span();
+    Ok(())
 }

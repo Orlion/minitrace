@@ -3,11 +3,15 @@ use std::collections::HashMap;
 use crate::context;
 use crate::span;
 use crate::util::{z_str_to_string, z_val_to_json_str};
-use phper::values::ZVal;
-use phper::{arrays::ZArr, eg, sg};
+use phper::{arrays::ZArr, eg, pg, sg, sys, values::ZVal};
 
 pub fn init() {
-    context::create_context();
+    let _ = phper::functions::call(
+        "set_error_handler",
+        &mut [ZVal::from("minitrace_error_handler")],
+    );
+
+    jit_initialization();
 
     let get = get_page_request_get().unwrap();
     let post = get_page_request_post().unwrap();
@@ -20,10 +24,11 @@ pub fn init() {
     }
 
     let mut payload = HashMap::new();
-    payload.insert("$_GET".to_string(), format!("{:?}", get));
-    payload.insert("$_POST".to_string(), format!("{:?}", post));
+    payload.insert("$_GET".to_string(), get);
+    payload.insert("$_POST".to_string(), post);
     payload.insert("method".to_string(), method);
 
+    context::create_context();
     let ctx = context::get_context();
 
     let _ = phper::functions::call(
@@ -47,6 +52,17 @@ pub fn shutdown() {
     });
     ctx.end_root_span();
     let _ = ctx.flush();
+}
+
+#[allow(clippy::useless_conversion)]
+fn jit_initialization() {
+    unsafe {
+        let jit_initialization: u8 = pg!(auto_globals_jit).into();
+        if jit_initialization != 0 {
+            let mut server = "_SERVER".to_string();
+            sys::zend_is_auto_global_str(server.as_mut_ptr().cast(), server.len());
+        }
+    }
 }
 
 fn get_page_request_server<'a>() -> Option<&'a ZArr> {
@@ -80,12 +96,16 @@ fn get_page_request_uri(server: &ZArr) -> String {
     server
         .get("REQUEST_URI")
         .and_then(z_str_to_string)
-        .unwrap_or_else(|| "UNKNOWN".to_string())
+        .and_then(|uri: String| {
+            let pos = uri.find('?').unwrap_or(uri.len());
+            Some(uri.split_at(pos).0.to_string())
+        })
+        .unwrap_or("UNKNOWN".to_string())
 }
 
 fn get_page_request_method(server: &ZArr) -> String {
     server
         .get("REQUEST_METHOD")
         .and_then(z_str_to_string)
-        .unwrap_or_else(|| "UNKNOWN".to_string())
+        .unwrap_or("UNKNOWN".to_string())
 }
