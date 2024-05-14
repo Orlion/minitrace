@@ -11,6 +11,11 @@ pub fn init() {
         &mut [ZVal::from("minitrace_error_handler")],
     );
 
+    let _ = phper::functions::call(
+        "set_exception_handler",
+        &mut [ZVal::from("minitrace_exception_handler")],
+    );
+
     jit_initialization();
 
     let get = get_page_request_get().unwrap();

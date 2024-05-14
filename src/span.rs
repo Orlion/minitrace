@@ -8,6 +8,7 @@ pub const SPAN_KIND_PDO: &str = "PDO";
 pub const SPAN_KIND_PDO_STATEMENT: &str = "PDO_STATEMENT";
 pub const SPAN_KIND_CURL: &str = "CURL";
 pub const SPAN_KIND_ERROR: &str = "ERROR";
+pub const SPAN_KIND_EXCEPTION: &str = "EXCEPTION";
 
 #[derive(Debug)]
 pub struct Span {

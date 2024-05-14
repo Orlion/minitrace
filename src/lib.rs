@@ -34,6 +34,10 @@ pub fn get_module() -> Module {
             Argument::by_val("errline"),
         ]);
 
+    module
+        .add_function("minitrace_exception_handler", minitrace_exception_handler)
+        .arguments(vec![Argument::by_val("ex")]);
+
     module.on_module_init(module::init);
     module.on_request_init(request::init);
     module.on_request_shutdown(request::shutdown);
@@ -59,6 +63,43 @@ fn minitrace_error_handler(arguments: &mut [ZVal]) -> phper::Result<()> {
         )
         .as_str(),
         HashMap::new(),
+    );
+    ctx.end_span();
+    Ok(())
+}
+
+fn minitrace_exception_handler(arguments: &mut [ZVal]) -> phper::Result<()> {
+    let ex = arguments[0].expect_mut_z_obj()?;
+    let binding = ex.call("getMessage", &mut [])?;
+    let message = binding
+        .as_z_str()
+        .ok_or(phper::errors::NotImplementThrowableError)?
+        .to_str()?;
+    let binding = ex.call("getFile", &mut [])?;
+    let file = binding
+        .as_z_str()
+        .ok_or(phper::errors::NotImplementThrowableError)?
+        .to_str()?;
+    let line = ex
+        .call("getLine", &mut [])?
+        .as_long()
+        .ok_or(phper::errors::NotImplementThrowableError)?;
+    let binding = ex.call("getTraceAsString", &mut [])?;
+    let trace = binding
+        .as_z_str()
+        .ok_or(phper::errors::NotImplementThrowableError)?
+        .to_str()?;
+
+    let class_name = ex.get_class().get_name().to_str()?;
+
+    let mut payload = HashMap::new();
+    payload.insert("trace".to_string(), trace.to_string());
+
+    let ctx = context::get_context();
+    ctx.start_span(
+        crate::span::SPAN_KIND_EXCEPTION,
+        format!("{}: {} in {} on line {}", class_name, message, file, line).as_str(),
+        payload,
     );
     ctx.end_span();
     Ok(())
